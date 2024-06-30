@@ -1,53 +1,74 @@
-require('./envloader')()
+// Load environment variables
+require('./envloader')();
 
-const express = require('express')
-const app = express()
-const cors = require('cors')
-const compression = require('compression')
-const helmet = require('helmet')
-const baseRouter = require('./router.js')
-const morgan = require('morgan')
-const PORT = process.env.PORT || 3000
-const { respond, l } = require('./loader.js').helpers
+// Import required modules
+const compression = require('compression');
+const helmet = require('helmet');
+const baseRouter = require('./router.js');
+const morgan = require('morgan');
+const { respond, l } = require('./loader.js').helpers;
+const express = require('express');
+const cors = require('cors');
 
-require('./loader.js').loadDependency(app)
+// Initialize express app
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-/* Middlewares */
-app.use(express.json())
+// Enable CORS
+app.use(cors());
+
+// Define a test API endpoint
+app.get('/api/endpoint', (req, res) => {
+  res.json({ message: 'Hello from the backend!' });
+});
+
+// Middleware to parse JSON and handle syntax errors
+app.use(express.json());
 app.use((err, req, res, next) => {
     if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-        return respond(res, 400, { message: 'Invalid JSON found' })
+        return respond(res, 400, { message: 'Invalid JSON found' });
     }
-    next()
-})
-// Log all api requests
+    next();
+});
+
+// Log all API requests
 app.use(
     morgan(
         'REQUEST [:date[clf]] ":method :url HTTP/:http-version" :status :user-agent',
         {
             immediate: true,
-            skip: function (req) { return (req.path === '/api/') },
+            skip: function (req) { return req.path === '/api/'; },
         },
     ),
-)
+);
+
+// Middleware to parse URL-encoded data
 app.use(
     express.urlencoded({
         extended: true,
         limit: '2mb',
         parameterLimit: 1000000,
     }),
-)
+);
 
-app.use(compression())
-app.use(helmet())
-app.use(cors())
+// Use compression and security middlewares
+app.use(compression());
+app.use(helmet());
 
-app.use('/api/', baseRouter)
+// Mount the base router
+app.use('/api/', baseRouter);
 
+// Define a root route
 app.get('/', (req, res) => {
-    return res.send('Compiler is up and working')
-})
+    return res.send('Compiler is up and working');
+});
 
-app.listen(PORT, () => {
-    l.info(`Server started at port: ${PORT}`)
-})
+// Start the server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, () => {
+        l.info(`Server started at port: ${PORT}`);
+    });
+}
+
+// Export the app for testing
+module.exports = app;
